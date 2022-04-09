@@ -1,0 +1,57 @@
+model {
+#### Likelihood ####
+for (i in 1:n){
+y[i] ~ dnorm (muy[i],tau2.inv)
+muy[i]= theta[rank[i]]
+}
+####generate theta ####
+for(i in 1:L){
+theta[i] ~ dnorm(0, sig2.inv)
+}
+####generate V x ####
+psi ~ dgamma(8,4)
+for(i in 1:n){
+logit(msb[i]) = gama0+gama1*E[i]+z[i]
+ab1[i]= psi*msb[i]
+ab2[i]= psi*(1-msb[i])
+vx[i] ~ dbeta(ab1[i],ab2[i])T(0.001,0.999) 
+}
+####generate v and p ####
+for(i in 1:(L-1)){
+v[i] ~ dbeta(1,alpha)T(0.001,0.999)
+}
+v[L] = 1
+p[1]= v[1]
+for(j in 2:(L-1)){
+p[j] = v[j]*prod(v[1:(j-1)])
+}
+p[L] = 1-sum(p[1:(L-1)])
+#### rank ####
+for(r in 1:n){
+ep[1,r] = 1*(step(vx[r]-0))*(step(p[1]-vx[r]))
+for(ll in 2:L){
+ep[ll,r] = (ll*(step(vx[r]-sum(p[1:(ll-1)])))*(step(sum(p[1:(ll)])-vx[r])))
+}
+rank[r] = sum(ep[1:L,r])
+}
+#### generate z ####
+for( i in 1:n){
+muz[i] = 0
+sigma[i,i] = 1
+for(j in (i+1):n){
+sigma[i,j] = exp(-D[i,j]/lambda)
+sigma[j,i] = sigma[i,j]
+}
+}
+z[1:n] ~ dmnorm(muz,sigma.z)
+sigma.z = inverse(sigma)
+#### prior ####
+tau2.inv ~ dgamma(0.01,0.01)
+tau2 = 1/tau2.inv
+sig2.inv ~ dgamma(0.01,0.01)
+sig2 =  1/sig2.inv
+alpha ~ dgamma(2,1)
+gama0 ~ dnorm(0,0.01)
+gama1 ~ dnorm(0,0.01)
+lambda ~ dgamma( 2,2.56)
+}# end model
